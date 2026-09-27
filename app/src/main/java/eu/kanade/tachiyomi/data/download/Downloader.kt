@@ -46,6 +46,8 @@ import mihon.core.archive.ZipWriter
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.storage.displayablePath
+import tachiyomi.core.common.storage.renameOrCopyTo
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNow
 import tachiyomi.core.common.util.lang.withIOContext
@@ -61,6 +63,7 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import java.io.File
+import java.io.IOException
 import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
@@ -399,7 +402,8 @@ class Downloader(
             if (downloadPreferences.saveChaptersAsCBZ.get()) {
                 archiveChapter(mangaDir, chapterDirname, tmpDir)
             } else {
-                tmpDir.renameTo(chapterDirname)
+                tmpDir.renameOrCopyTo(chapterDirname)
+                    ?: throw IOException("Failed to rename ${tmpDir.displayablePath} to $chapterDirname")
             }
             cache.addChapter(chapterDirname, mangaDir, download.manga)
 
@@ -477,7 +481,7 @@ class Downloader(
                 ?: tmpDir.createFile("$filename.tmp")!!
 
             try {
-                source.getImage(page, file.length()).use {
+                val renamed = source.getImage(page, file.length()).use {
                     it.body.source().saveTo(
                         // If the server supports partial downloads (HTTP 206),
                         // append to the existing file.
@@ -485,15 +489,16 @@ class Downloader(
                         stream = file.openOutputStream(it.code == 206),
                     )
                     val extension = getImageExtension(it, file)
-                    file.renameTo("$filename.$extension")
+                    file.renameOrCopyTo("$filename.$extension")
+                        ?: throw IOException("Failed to rename ${file.displayablePath} to $filename.$extension")
                 }
+                emit(renamed)
             } catch (e: HttpException) {
                 if (e.code == 416) {
                     file.delete()
                 }
                 throw e
             }
-            emit(file)
         }
             // Retry 3 times, waiting 2, 4 and 8 seconds between attempts.
             .retryWhen { _, attempt ->
@@ -524,9 +529,10 @@ class Downloader(
             }
         }
         val extension = ImageUtil.findImageType(cacheFile.inputStream()) ?: return tmpFile
-        tmpFile.renameTo("$filename.${extension.extension}")
+        val renamed = tmpFile.renameOrCopyTo("$filename.${extension.extension}")
+            ?: throw IOException("Failed to rename ${tmpFile.displayablePath} to $filename.${extension.extension}")
         cacheFile.delete()
-        return tmpFile
+        return renamed
     }
 
     /**
@@ -616,7 +622,8 @@ class Downloader(
                 writer.write(file)
             }
         }
-        zip.renameTo("$dirname.cbz")
+        zip.renameOrCopyTo("$dirname.cbz")
+            ?: throw IOException("Failed to rename ${zip.displayablePath} to $dirname.cbz")
         tmpDir.delete()
     }
 

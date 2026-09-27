@@ -6,6 +6,7 @@ import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerConfig
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -140,6 +141,18 @@ class ReaderPreferences(
     val dualPageView: Preference<DualPageView> = preferenceStore.getEnum(
         "pref_dual_page_view",
         DualPageView.NEVER,
+    )
+
+    // Combine two pages into a single spread (paged viewers only).
+    val pageLayout: Preference<Int> = preferenceStore.getInt("page_layout", PagerConfig.PageLayout.AUTOMATIC)
+
+    val invertDoublePages: Preference<Boolean> = preferenceStore.getBoolean("invert_double_pages", false)
+
+    val shiftDoublePages: Preference<Boolean> = preferenceStore.getBoolean("pref_shift_double_pages", false)
+
+    val centerMarginType: Preference<Int> = preferenceStore.getInt(
+        "center_margin_type",
+        PagerConfig.CenterMarginType.NONE,
     )
 
     // endregion
@@ -320,6 +333,19 @@ class ReaderPreferences(
             MR.strings.zoom_start_left,
             MR.strings.zoom_start_right,
             MR.strings.zoom_start_center,
+        )
+
+        val PageLayouts = listOf(
+            MR.strings.single_page,
+            MR.strings.double_pages,
+            MR.strings.automatic_orientation,
+        )
+
+        val CenterMarginTypes = listOf(
+            MR.strings.center_margin_none,
+            MR.strings.center_margin_double_page,
+            MR.strings.center_margin_wide_page,
+            MR.strings.center_margin_double_and_wide_page,
         )
 
         val ColorFilterMode = buildList {

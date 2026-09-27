@@ -6,6 +6,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -73,6 +75,8 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerConfig
+import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
@@ -558,6 +562,10 @@ class ReaderActivity : BaseActivity() {
         updateViewerInset(readerPreferences.fullscreen.get(), readerPreferences.drawUnderCutout.get())
         binding.viewerContainer.addView(newViewer.getView())
 
+        if (newViewer is PagerViewer && readerPreferences.pageLayout.get() == PagerConfig.PageLayout.AUTOMATIC) {
+            setDoublePageMode(newViewer)
+        }
+
         if (readerPreferences.showReadingMode.get()) {
             showReadingModeToast(viewModel.getMangaReadingMode())
         }
@@ -707,6 +715,26 @@ class ReaderActivity : BaseActivity() {
      */
     fun requestPreloadChapter(chapter: ReaderChapter) {
         lifecycleScope.launchIO { viewModel.preload(chapter) }
+    }
+
+    /**
+     * Reloads (re-pairs) the current chapters in the pager viewer to apply the double-page layout.
+     * Invoked by [PagerConfig.reloadChapterListener] when a double-page preference changes.
+     */
+    fun reloadChapters(doublePages: Boolean) {
+        val viewer = viewModel.state.value.viewer as? PagerViewer ?: return
+        if (viewer.config.autoDoublePages) {
+            setDoublePageMode(viewer)
+        } else {
+            viewer.config.doublePages = doublePages
+        }
+        viewModel.state.value.viewerChapters?.let {
+            viewer.setChapters(it)
+        }
+    }
+
+    private fun setDoublePageMode(viewer: PagerViewer) {
+        viewer.config.doublePages = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     }
 
     /**
